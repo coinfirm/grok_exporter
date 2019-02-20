@@ -43,6 +43,15 @@ func newDivideFunc() functionWithValidator {
 	}
 }
 
+func newDurationFunc() functionWithValidator {
+	return functionWithValidator{
+		function: duration,
+		staticValidator: func(cmd *parse.CommandNode) error {
+			return validate("duration", cmd)
+		},
+	}
+}
+
 func add(a, b interface{}) (float64, error) {
 	aFloat, bFloat, err := toFloats(a, b)
 	if err != nil {
@@ -78,6 +87,14 @@ func divide(a, b interface{}) (float64, error) {
 	return aFloat / bFloat, nil
 }
 
+func duration(a, b, c interface{}) (float64, error) {
+	   aFloat, bFloat, cFloat, err := toFloats3(a, b, c)
+	   if err != nil {
+			   return 0, fmt.Errorf("error executing duration function: %v", err)
+	   }
+	   return 60 * ( 60 * aFloat + bFloat) + cFloat, nil
+}
+
 func toFloats(a, b interface{}) (float64, float64, error) {
 	floatA, err := toFloat(a)
 	if err != nil {
@@ -88,6 +105,24 @@ func toFloats(a, b interface{}) (float64, float64, error) {
 		return 0, 0, fmt.Errorf("cannot convert %v to floating point number: %v", b, err)
 	}
 	return floatA, floatB, nil
+}
+
+func toFloats3(a, b, c interface{}) (float64, float64, float64, error) {
+	floatA, err := toFloat(a)
+	if err != nil {
+		return 0, 0, 0, fmt.Errorf("cannot convert %v to floating point number: %v", a, err)
+	}
+	floatB, err := toFloat(b)
+	if err != nil {
+		return 0, 0, 0, fmt.Errorf("cannot convert %v to floating point number: %v", b, err)
+	}
+
+	floatC, err := toFloat(c)
+	if err != nil {
+		return 0, 0, 0, fmt.Errorf("cannot convert %v to floating point number: %v", c, err)
+	}
+
+	return floatA, floatB, floatC, nil
 }
 
 func toFloat(f interface{}) (float64, error) {
@@ -110,12 +145,23 @@ func toFloat(f interface{}) (float64, error) {
 
 func validate(functionName string, cmd *parse.CommandNode) error {
 	prefix := fmt.Sprintf("syntax error in %v call", functionName)
-	if len(cmd.Args) != 3 {
-		return fmt.Errorf("%v: expected two parameters, but found %v parameters", prefix, len(cmd.Args)-1)
+    var params []int
+	switch functionName {
+		case "duration":
+			if len(cmd.Args) != 4 {
+				return fmt.Errorf("%v: expected three parameters, but found %v parameters", prefix, len(cmd.Args)-1)
+			}
+			params = []int{1, 2, 3}
+		default:
+			if len(cmd.Args) != 3 {
+				return fmt.Errorf("%v: expected two parameters, but found %v parameters", prefix, len(cmd.Args)-1)
+			}
+			params = []int{1, 2}
+
 	}
 	// If a param is a string or number, we check if we can parse it.
 	// Otherwise it might be a variable of a function call, we cannot check this statically.
-	for _, paramPos := range []int{1, 2} {
+	for _, paramPos := range params  {
 		switch param := cmd.Args[paramPos].(type) {
 		case *parse.NumberNode:
 			if !param.IsFloat {
